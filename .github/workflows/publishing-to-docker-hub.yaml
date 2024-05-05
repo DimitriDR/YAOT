@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Compilation vers image Docker
-        run: sudo docker build -t dimitridr/yaot:$GITHUB_REF .
+        run: sudo docker build -t dimitridr/yaot:$GITHUB_SHA .
 
       - name: Étiquetage « latest » sur image produite
         run: docker tag dimitridr/yaot:$GITHUB_SHA dimitridr/yaot:latest
@@ -25,7 +25,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Publication sur Docker Hub (avec SHA GitHub)
-        run: docker push dimitridr/yaot:$GITHUB_REF
+        run: docker push dimitridr/yaot:$GITHUB_SHA
 
       - name: Publication sur Docker Hub (latest)
         run: docker push dimitridr/yaot:latest
