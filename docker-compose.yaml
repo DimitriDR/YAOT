@@ -1,8 +1,16 @@
 version: "3.9"
 
 services:
-  yoat:
-    image: yoat:latest
-    container_name: yoat
+  yaot:
+    image: dimitridr/yaot
+    container_name: yaot
+    environment:
+      EMAIL_FROM: "" # Adresse e-mail de l'expéditeur des mails
+      EMAIL_PASSWORD: "" # Mot de passe de l'adresse e-mail de l'expéditeur
+      EMAIL_TO: "one@example.com,two@example.com" # Liste des adresses e-mail des destinataires. Séparer par des virgules
+      OASIS_ID: 123456789 # Identifiant OASIS
+      OASIS_PASSWORD: "" # Mot de passe OASIS
+      PHONE_NUMBER: "+33123456789" # Numéro de téléphone au format international
+      SIGNAL_API_SERVER: "" # URL du serveur API Signal
     volumes:
       - /etc/localtime:/etc/localtime:ro

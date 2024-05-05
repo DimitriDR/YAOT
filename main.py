@@ -1,15 +1,13 @@
 import json
-import os.path
+import os
+import signal
 import smtplib
-import time
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import schedule
-import signal
+from os import getenv
 
 import requests
-import toml
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -18,11 +16,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
-# Variable globale contenant le dictionnaire de l'application stockée dans le fichier TOML.
-# Pas bien, je sais.
-config = toml.load("config.toml")
-mark_json_path = "marks.json"
+mark_json_path = "/app/marks.json"
+"""Variable globale contenant les notes. Fichier uniquement manipulé par le programme. Pas bien, je sais."""
 
+send_with_signal: bool = True
+"""Variable pour activer ou désactiver l'envoi de messages par Signal."""
 
 def signal_handler(signal, frame):
     print("Signal d'arrêt reçu, fin de l'application...")
@@ -43,13 +41,14 @@ def send_signal_message(message: str) -> tuple[int, str]:
     :param message: Message à envoyer.
     :return: Code retourné par la requête HTTP et contenu de la réponse.
     """
-    url: str = config["signal_server_url"]
+    url: str = getenv("SIGNAL_API_SERVER") + "/v2/send"
+
     headers = {"Content-Type": "application/json"}
     data = {
         "message": message,
-        "number": config["phone_number"],
+        "number": getenv("PHONE_NUMBER"),
         "recipients": [
-            config["phone_number"]
+            getenv("PHONE_NUMBER")
         ],
         "text_mode": "styled"
     }
@@ -87,9 +86,9 @@ def get_oasis_page() -> BeautifulSoup:
     with webdriver.Chrome(service=webdriver_service, options=chrome_options) as browser:
         browser.get(url)
         login_input = browser.find_element(By.XPATH, '//input[@placeholder="Identifiant"]')
-        login_input.send_keys(config["oasis_id"])
+        login_input.send_keys(str(getenv("OASIS_ID")))
         password_input = browser.find_element(By.XPATH, '//input[@placeholder="Mot de passe"]')
-        password_input.send_keys(config["oasis_password"])
+        password_input.send_keys(getenv("OASIS_PASSWORD"))
 
         login_button = browser.find_element(By.XPATH, '//button[@type="submit"]')
         login_button.click()
@@ -141,6 +140,27 @@ def initial_setup(html_content: BeautifulSoup):
     ainsi que les matières, contrôles et notes associées pour les comparer avec les futures notes.
     :return: None
     """
+    # Vérification des variables d'environnement
+    if "OASIS_ID" not in os.environ or os.environ["OASIS_ID"] == "":
+        print(f"{get_formatted_datetime()} -- [ERROR] La variable d'environnement OASIS_ID n'est pas définie. "
+              f"Impossible de continuer sans identifiant.")
+        exit(1)
+
+    if "OASIS_PASSWORD" not in os.environ or os.environ["OASIS_PASSWORD"] == "":
+        print(f"{get_formatted_datetime()} -- [ERROR] La variable d'environnement OASIS_PASSWORD n'est pas définie. "
+              f"Impossible de continuer sans mot de passe.")
+        exit(1)
+
+    if "SIGNAL_API_SERVER" not in os.environ or os.environ["SIGNAL_API_SERVER"] == "":
+        print(f"{get_formatted_datetime()} -- [WARN] La variable d'environnement SIGNAL_API_SERVER n'est pas définie. "
+              f"Il sera impossible d'envoyer des messages par Signal")
+        global send_with_signal
+        send_with_signal = False
+    if "PHONE_NUMBER" not in os.environ or os.environ["PHONE_NUMBER"] == "":
+        print(f"{get_formatted_datetime()} -- [WARN] La variable d'environnement PHONE_NUMBER n'est pas définie. "
+              f"Il sera impossible d'envoyer des messages par Signal")
+        send_with_signal = False
+
     print(f"{get_formatted_datetime()} -- [INFO] Début de l'initialisation...")
     current_number_of_tests: int = get_number_of_tests(html_content)
     current_marks: dict = get_marks(html_content)
@@ -198,8 +218,8 @@ def send_email(email_address: str, message: str):
     :param message: Message à envoyer.
     :return:
     """
-    email: str = config["email"]
-    password: str = config["email_password"]
+    email: str = getenv("EMAIL_FROM")
+    password: str = getenv("EMAIL_PASSWORD")
 
     smtp_server: str = "smtp.gmail.com"
     smtp_port: int = 587
@@ -227,7 +247,7 @@ def send_emails(subject, test):
     :param test: Nom de l'épreuve concernée par la note.
     :return: Néant. Envoi d'e-mails.
     """
-    emails = config["testers_emails"]
+    emails = getenv("EMAILS").split(",")
 
     for email in emails:
         message: str = (f"Nouvelle note pour la matière « <strong>{subject}</strong> » pour l'épreuve « {test} »<br "
@@ -251,12 +271,13 @@ def new_mark_routine(html_content: BeautifulSoup, marks_data: dict):
             message: str = f"Nouvelle note pour la matière « {subject} » : **{new_marks_only[subject][test]}/20** pour l'épreuve « *{test}* »"
 
             # Envoi d'un message Signal pour le king
-            signal_status_code = send_signal_message(message)
-            if signal_status_code[0] != 201:
-                print(f"{get_formatted_datetime()} -- [ERROR] Impossible d'envoyer le message Signal : "
-                      f"{signal_status_code[1]}")
-            else:
-                print(f"{get_formatted_datetime()} -- [INFO] Message Signal envoyé avec succès !")
+            if send_with_signal:
+                signal_status_code = send_signal_message(message)
+                if signal_status_code[0] != 201:
+                    print(f"{get_formatted_datetime()} -- [ERROR] Impossible d'envoyer le message Signal : "
+                          f"{signal_status_code[1]}")
+                else:
+                    print(f"{get_formatted_datetime()} -- [INFO] Message Signal envoyé avec succès !")
 
             # Envoi d'un e-mail pour le peuple
             send_emails(subject, test)
@@ -270,8 +291,9 @@ def new_mark_routine(html_content: BeautifulSoup, marks_data: dict):
 def update_routine():
     """
     Fonction permettant de mettre à jour les notes.
-    :return:
+    :return: Néant. Mise à jour des notes.
     """
+    print(f"{get_formatted_datetime()} -- [INFO] Recherche de nouvelles notes...")
     html_content: BeautifulSoup = get_oasis_page()
 
     # On regarde s'il y a une nouvelle note en regardant le nombre d'épreuves
@@ -317,9 +339,3 @@ signal.signal(signal.SIGINT, signal_handler)
 
 if __name__ == "__main__":
     main()
-
-    schedule.every(10).minutes.do(main)
-
-    while True:
-        schedule.run_pending()
-        time.sleep(1)

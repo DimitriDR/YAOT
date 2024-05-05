@@ -1,9 +1,0 @@
-phone_number = "+33XXXXXXXXX"
-signal_server_url = "https://signal-api.mon.domaine"
-email = "toto@example.com"
-email_password = ""
-oasis_id = 000000000
-oasis_password = ""
-testers_emails = [
-    ""
-]

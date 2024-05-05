@@ -1,20 +1,14 @@
-FROM python:3.11-slim
+FROM alpine:3.19
 
 WORKDIR /app
 
-COPY config.toml /app
-COPY main.py /app
-COPY requirements.txt /app
-COPY marks.json /app
+COPY main.py .
+COPY requirements.txt .
 
-RUN apt-get update && apt-get install -y \
-    chromium \
-    chromium-driver \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache python3 py3-pip chromium chromium-chromedriver
 
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python3 -m venv .venv
+RUN .venv/bin/pip install --no-cache-dir --upgrade pip
+RUN .venv/bin/pip install --no-cache-dir -r requirements.txt
 
-ENV PATH="/root/.local/bin:${PATH}"
-
-CMD ["python", "-u", "main.py"]
+CMD echo "* * * * * /app/.venv/bin/python /app/main.py  >> /proc/1/fd/1 2>&1" > /etc/crontabs/root && crond -f
