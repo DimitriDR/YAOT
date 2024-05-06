@@ -12,5 +12,6 @@ services:
       OASIS_PASSWORD: "" # Mot de passe OASIS
       PHONE_NUMBER: "+33123456789" # Numéro de téléphone au format international
       SIGNAL_API_SERVER: "" # URL du serveur API Signal
+      SEMESTER: 1 # Premier ou deuxième semestre
     volumes:
       - /etc/localtime:/etc/localtime:ro

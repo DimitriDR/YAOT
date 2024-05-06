@@ -22,6 +22,7 @@ mark_json_path = "/app/marks.json"
 send_with_signal: bool = True
 """Variable pour activer ou désactiver l'envoi de messages par Signal."""
 
+
 def signal_handler(signal, frame):
     print("Signal d'arrêt reçu, fin de l'application...")
     exit(0)
@@ -64,7 +65,7 @@ def get_number_of_tests(html_content: BeautifulSoup) -> int:
     :param html_content: Contenu HTML de la page de l'OASIS.
     :return: Nombre d'épreuves déjà notées.
     """
-    tests_content: str = html_content.find(id="TestsSemester21900789_2023_1").get_text()
+    tests_content: str = html_content.find(id=f"TestsSemester{getenv("OASIS_ID")}_{datetime.now().year - 1}_{getenv("SEMESTER")}").get_text()
     number_of_tests: int = int(tests_content.split("(")[1].split(")")[0])
 
     return number_of_tests
@@ -274,7 +275,7 @@ def new_mark_routine(html_content: BeautifulSoup, marks_data: dict):
             if send_with_signal:
                 signal_status_code = send_signal_message(message)
                 if signal_status_code[0] != 201:
-                    print(f"{get_formatted_datetime()} -- [ERROR] Impossible d'envoyer le message Signal : "
+                    print(f"{get_formatted_datetime()} -- [ERREUR] Impossible d'envoyer le message Signal : "
                           f"{signal_status_code[1]}")
                 else:
                     print(f"{get_formatted_datetime()} -- [INFO] Message Signal envoyé avec succès !")
@@ -321,7 +322,13 @@ def main():
     opening_hour: int = 6
     closing_hour: int = 23
 
+    # Si l'heure actuelle est comprise entre la plage horaire, on lance le programme
     if opening_hour <= now.hour <= closing_hour:
+        # On accepte le dernier lancement vers 23 h, mais après, on ferme boutique, on prend 10 minutes de marge
+        if now.hour == closing_hour and now.minute > 10:
+            print(f"{get_formatted_datetime()} -- [INFO] ZzZzZz ! Le programme dort... À demain dès {opening_hour} h !")
+            return
+
         # Si le fichier de note n'existe pas, on définit le booléen à vrai pour effectuer la configuration initiale
         skip_initial_setup: bool = os.path.exists(mark_json_path) and os.stat(mark_json_path).st_size != 0
 
