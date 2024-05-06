@@ -142,14 +142,14 @@ def initial_setup(html_content: BeautifulSoup):
     :return: None
     """
     # Vérification des variables d'environnement
-    if "OASIS_ID" not in os.environ or os.environ["OASIS_ID"] == "":
-        print(f"{get_formatted_datetime()} -- [ERROR] La variable d'environnement OASIS_ID n'est pas définie. "
+    if "OASIS_ID" not in os.environ or os.environ["OASIS_ID"] == "" or "OASIS_PASSWORD" not in os.environ or os.environ["OASIS_PASSWORD"] == "":
+        print(f"{get_formatted_datetime()} -- [ERREUR] La variable d'environnement OASIS_ID ou OASIS_PASSWORD n'est pas définie. "
               f"Impossible de continuer sans identifiant.")
         exit(1)
 
-    if "OASIS_PASSWORD" not in os.environ or os.environ["OASIS_PASSWORD"] == "":
-        print(f"{get_formatted_datetime()} -- [ERROR] La variable d'environnement OASIS_PASSWORD n'est pas définie. "
-              f"Impossible de continuer sans mot de passe.")
+    if "SEMESTER" not in os.environ or os.environ["SEMESTER"] == "":
+        print(f"{get_formatted_datetime()} -- [ERREUR] La variable d'environnement SEMESTER n'est pas définie. "
+              f"Impossible de continuer sans savoir le semestre à récupérer.")
         exit(1)
 
     if "SIGNAL_API_SERVER" not in os.environ or os.environ["SIGNAL_API_SERVER"] == "":
