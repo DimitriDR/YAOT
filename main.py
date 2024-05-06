@@ -65,7 +65,7 @@ def get_number_of_tests(html_content: BeautifulSoup) -> int:
     :param html_content: Contenu HTML de la page de l'OASIS.
     :return: Nombre d'épreuves déjà notées.
     """
-    tests_content: str = html_content.find(id=f"TestsSemester{getenv("OASIS_ID")}_{datetime.now().year - 1}_{getenv("SEMESTER")}").get_text()
+    tests_content: str = html_content.find(id=f"TestsSemester{str(getenv('OASIS_ID'))}_{datetime.now().year - 1}_{getenv('SEMESTER')}").get_text()
     number_of_tests: int = int(tests_content.split("(")[1].split(")")[0])
 
     return number_of_tests
