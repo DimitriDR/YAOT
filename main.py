@@ -10,6 +10,7 @@ from os import getenv
 import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.common import TimeoutException, WebDriverException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -65,7 +66,8 @@ def get_number_of_tests(html_content: BeautifulSoup) -> int:
     :param html_content: Contenu HTML de la page de l'OASIS.
     :return: Nombre d'épreuves déjà notées.
     """
-    tests_content: str = html_content.find(id=f"TestsSemester{str(getenv('OASIS_ID'))}_{datetime.now().year - 1}_{getenv('SEMESTER')}").get_text()
+    tests_content: str = html_content.find(
+        id=f"TestsSemester{str(getenv('OASIS_ID'))}_{datetime.now().year - 1}_{getenv('SEMESTER')}").get_text()
     number_of_tests: int = int(tests_content.split("(")[1].split(")")[0])
 
     return number_of_tests
@@ -74,9 +76,23 @@ def get_number_of_tests(html_content: BeautifulSoup) -> int:
 def get_oasis_page() -> BeautifulSoup:
     """
     Fonction permettant de récupérer le contenu de la page de l'OASIS.
-    :return: Contenu HTML de la page d'OASIS.
+    :return: Contenu HTML de la page d'OASIS
     """
     url: str = "https://oasis.polytech.universite-paris-saclay.fr/#codepage=MYMARKS"
+
+    # Vérification des variables d'environnement nécessaires
+    if "OASIS_ID" not in os.environ or os.environ["OASIS_ID"] == "" or "OASIS_PASSWORD" not in os.environ or \
+            os.environ[
+                "OASIS_PASSWORD"] == "":
+        print(
+            f"{get_formatted_datetime()} -- [ERREUR] La variable d'environnement OASIS_ID ou OASIS_PASSWORD n'est pas "
+            f"définie. Impossible de continuer sans identifiant.")
+        exit(1)
+
+    if "SEMESTER" not in os.environ or os.environ["SEMESTER"] == "":
+        print(f"{get_formatted_datetime()} -- [ERREUR] La variable d'environnement SEMESTER n'est pas définie. "
+              f"Impossible de continuer sans savoir le semestre à récupérer.")
+        exit(1)
 
     webdriver_service = Service("/usr/bin/chromedriver")
     chrome_options = Options()
@@ -94,7 +110,7 @@ def get_oasis_page() -> BeautifulSoup:
         login_button = browser.find_element(By.XPATH, '//button[@type="submit"]')
         login_button.click()
 
-        WebDriverWait(browser, 25).until(EC.presence_of_element_located((By.ID, "Semester21900789_2022_1")))
+        WebDriverWait(browser, 30).until(EC.presence_of_element_located((By.ID, "Semester21900789_2022_1")))
 
         soup = BeautifulSoup(browser.page_source, "html.parser")
 
@@ -141,17 +157,6 @@ def initial_setup(html_content: BeautifulSoup):
     ainsi que les matières, contrôles et notes associées pour les comparer avec les futures notes.
     :return: None
     """
-    # Vérification des variables d'environnement
-    if "OASIS_ID" not in os.environ or os.environ["OASIS_ID"] == "" or "OASIS_PASSWORD" not in os.environ or os.environ["OASIS_PASSWORD"] == "":
-        print(f"{get_formatted_datetime()} -- [ERREUR] La variable d'environnement OASIS_ID ou OASIS_PASSWORD n'est pas définie. "
-              f"Impossible de continuer sans identifiant.")
-        exit(1)
-
-    if "SEMESTER" not in os.environ or os.environ["SEMESTER"] == "":
-        print(f"{get_formatted_datetime()} -- [ERREUR] La variable d'environnement SEMESTER n'est pas définie. "
-              f"Impossible de continuer sans savoir le semestre à récupérer.")
-        exit(1)
-
     if "SIGNAL_API_SERVER" not in os.environ or os.environ["SIGNAL_API_SERVER"] == "":
         print(f"{get_formatted_datetime()} -- [WARN] La variable d'environnement SIGNAL_API_SERVER n'est pas définie. "
               f"Il sera impossible d'envoyer des messages par Signal")
@@ -294,8 +299,17 @@ def update_routine():
     Fonction permettant de mettre à jour les notes.
     :return: Néant. Mise à jour des notes.
     """
+    try:
+        html_content: BeautifulSoup = get_oasis_page()
+    except (TimeoutException, WebDriverException):
+        print(f"{get_formatted_datetime()} -- [ERREUR] Impossible de récupérer la page de l'OASIS.")
+        return
+
+    if html_content is None:
+        print(f"{get_formatted_datetime()} -- [ERREUR] Impossible de récupérer le contenu de la page d'OASIS.")
+        return
+
     print(f"{get_formatted_datetime()} -- [INFO] Recherche de nouvelles notes...")
-    html_content: BeautifulSoup = get_oasis_page()
 
     # On regarde s'il y a une nouvelle note en regardant le nombre d'épreuves
     number_of_tests: int = get_number_of_tests(html_content)
@@ -332,7 +346,11 @@ def main():
         # Si le fichier de note n'existe pas, on définit le booléen à vrai pour effectuer la configuration initiale
         skip_initial_setup: bool = os.path.exists(mark_json_path) and os.stat(mark_json_path).st_size != 0
 
-        oasis_page = get_oasis_page()
+        try:
+            oasis_page = get_oasis_page()
+        except (TimeoutException, WebDriverException):
+            print(f"{get_formatted_datetime()} -- [ERREUR] Impossible de récupérer la page de l'OASIS.")
+            return
 
         if not skip_initial_setup:
             initial_setup(oasis_page)

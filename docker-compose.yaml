@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   yaot:
-    image: dimitridr/yaot
+    image: dimitridr/yaot:latest
     container_name: yaot
     environment:
       EMAIL_FROM: "" # Adresse e-mail de l'expéditeur des mails
