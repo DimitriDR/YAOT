@@ -214,6 +214,16 @@ def compare_old_and_new_marks(html_content, marks_data) -> tuple[dict, dict]:
                 if test not in marks_data["marks"][subject]:
                     new_marks[subject] = {test: marks[subject][test]}
 
+    # On veut aussi savoir si une note a été mise à jour en passant
+    for subject in marks:
+        for test in marks[subject]:
+            if subject in marks_data["marks"] and test in marks_data["marks"][subject]:
+                if marks[subject][test] != marks_data["marks"][subject][test]:
+                    if subject not in new_marks:
+                        new_marks[subject] = {test: marks[subject][test]}
+                    else:
+                        new_marks[subject][test] = marks[subject][test]
+
     return marks, new_marks
 
 
@@ -274,7 +284,12 @@ def new_mark_routine(html_content: BeautifulSoup, marks_data: dict):
 
     for subject in new_marks_only:
         for test in new_marks_only[subject]:
-            message: str = f"Nouvelle note pour la matière « {subject} » : **{new_marks_only[subject][test]}/20** pour l'épreuve « *{test}* »"
+            grade = new_marks_only[subject][test]
+            # Si la note est un tiret, c'est que la note n'est pas encore disponible, on la passe
+            if grade == "—":
+                continue
+
+            message: str = f"Nouvelle note pour la matière « {subject} » : **{grade}/20** pour l'épreuve « *{test}* »"
 
             # Envoi d'un message Signal pour le king
             if send_with_signal:
