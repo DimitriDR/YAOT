@@ -207,9 +207,9 @@ def compare_old_and_new_marks(html_content, marks_data) -> tuple[dict, dict]:
     for subject in marks:
         # Si la matière n'est pas dans le fichier JSON, c'est qu'il y a une nouvelle note inédite
         if subject not in marks_data["marks"]:
+            new_marks[subject] = {}
             for test in marks[subject]:
-                new_marks[subject] = {test: marks[subject][test]}  # On ajoute la note à la liste des nouvelles notes
-                break
+                new_marks[subject][test] = marks[subject][test]  # On ajoute la note à la liste des nouvelles notes
         else:  # Sinon, on regarde les tests déjà présents par rapport aux nouvelles notes
             for test in marks[subject]:
                 # Si le test n'est pas dans le fichier JSON, c'est qu'il y a une nouvelle note inédite
