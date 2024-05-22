@@ -102,6 +102,7 @@ def get_oasis_page() -> BeautifulSoup:
 
     with webdriver.Chrome(service=webdriver_service, options=chrome_options) as browser:
         browser.get(url)
+
         login_input = browser.find_element(By.XPATH, '//input[@placeholder="Identifiant"]')
         login_input.send_keys(str(getenv("OASIS_ID")))
         password_input = browser.find_element(By.XPATH, '//input[@placeholder="Mot de passe"]')
@@ -207,7 +208,8 @@ def compare_old_and_new_marks(html_content, marks_data) -> tuple[dict, dict]:
         # Si la matière n'est pas dans le fichier JSON, c'est qu'il y a une nouvelle note inédite
         if subject not in marks_data["marks"]:
             for test in marks[subject]:
-                new_marks[subject] = {test: marks[subject][test]}
+                new_marks[subject] = {test: marks[subject][test]}  # On ajoute la note à la liste des nouvelles notes
+                break
         else:  # Sinon, on regarde les tests déjà présents par rapport aux nouvelles notes
             for test in marks[subject]:
                 # Si le test n'est pas dans le fichier JSON, c'est qu'il y a une nouvelle note inédite
@@ -219,6 +221,7 @@ def compare_old_and_new_marks(html_content, marks_data) -> tuple[dict, dict]:
         for test in marks[subject]:
             if subject in marks_data["marks"] and test in marks_data["marks"][subject]:
                 if marks[subject][test] != marks_data["marks"][subject][test]:
+                    print("[INFO] Note mise à jour pour la matière «", subject, "» pour l'épreuve «", test, "»")
                     if subject not in new_marks:
                         new_marks[subject] = {test: marks[subject][test]}
                     else:
@@ -263,6 +266,10 @@ def send_emails(subject, test):
     :param test: Nom de l'épreuve concernée par la note.
     :return: Néant. Envoi d'e-mails.
     """
+    if "EMAILS" not in os.environ or os.environ["EMAILS"] == "":
+        print(f"{get_formatted_datetime()} -- [WARN] La variable d'environnement EMAILS n'est pas définie. ")
+        return
+
     emails = getenv("EMAILS").split(",")
 
     for email in emails:
@@ -317,11 +324,11 @@ def update_routine():
     try:
         html_content: BeautifulSoup = get_oasis_page()
     except (TimeoutException, WebDriverException):
-        print(f"{get_formatted_datetime()} -- [ERREUR] Impossible de récupérer la page de l'OASIS.")
+        print(f"{get_formatted_datetime()} -- [ERREUR] Impossible de récupérer la page OASIS.")
         return
 
     if html_content is None:
-        print(f"{get_formatted_datetime()} -- [ERREUR] Impossible de récupérer le contenu de la page d'OASIS.")
+        print(f"{get_formatted_datetime()} -- [ERREUR] Impossible de récupérer le contenu de la page OASIS.")
         return
 
     print(f"{get_formatted_datetime()} -- [INFO] Recherche de nouvelles notes...")
@@ -339,6 +346,7 @@ def update_routine():
         print(f"{get_formatted_datetime()} -- [INFO] Une ou plusieurs nouvelles notes détectées !")
         new_mark_routine(html_content, marks_data)
     else:
+        new_mark_routine(html_content, marks_data)
         print(f"{get_formatted_datetime()} -- [INFO] Pas de nouvelle note...")
 
 
@@ -364,7 +372,7 @@ def main():
         try:
             oasis_page = get_oasis_page()
         except (TimeoutException, WebDriverException):
-            print(f"{get_formatted_datetime()} -- [ERREUR] Impossible de récupérer la page de l'OASIS.")
+            print(f"{get_formatted_datetime()} -- [ERREUR] Impossible de récupérer la page OASIS.")
             return
 
         if not skip_initial_setup:
